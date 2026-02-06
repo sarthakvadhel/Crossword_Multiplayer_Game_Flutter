@@ -59,7 +59,7 @@ class _RackTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: isSelected
             ? Theme.of(context).colorScheme.primaryContainer
-      : Theme.of(context).colorScheme.surfaceContainerHighest,
+            : Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: Theme.of(context).colorScheme.outline,

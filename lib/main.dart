@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'viewmodels/game_view_model.dart';
-import 'views/game_page.dart';
+import 'views/home_page.dart';
 
 void main() {
   runApp(const CrosswordGameApp());
@@ -34,7 +34,7 @@ class CrosswordGameApp extends StatelessWidget {
           useMaterial3: true,
         ),
         themeMode: ThemeMode.system,
-        home: const GamePage(),
+        home: const HomePage(),
       ),
     );
   }

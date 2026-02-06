@@ -11,6 +11,7 @@ class BoardCell {
     this.clueText,
     this.clueAsset,
     this.ownerColor,
+    this.isHighlighted = false,
   });
 
   final int row;
@@ -22,4 +23,5 @@ class BoardCell {
   String? clueText;
   String? clueAsset;
   Color? ownerColor;
+  bool isHighlighted;
 }

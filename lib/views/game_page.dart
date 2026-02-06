@@ -15,11 +15,12 @@ class GamePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final viewModel = context.watch<GameViewModel>();
     final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+    final isPlayerTurn = viewModel.currentPlayerIndex == 0;
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Crossword Duel'),
+        title: const Text('Crossword Master'),
         centerTitle: false,
         backgroundColor: const Color(0xFF516CF5),
         foregroundColor: Colors.white,
@@ -41,7 +42,7 @@ class GamePage extends StatelessWidget {
         ],
       ),
       body: SafeArea(
-      child: Stack(
+        child: Stack(
           children: [
             Column(
               children: [
@@ -78,6 +79,18 @@ class GamePage extends StatelessWidget {
                             player: viewModel.players.last,
                             isActive: viewModel.currentPlayerIndex == 1,
                             backgroundColor: const Color(0xFFFFDDE0),
+                          ),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Text(
+                          viewModel.currentPlayerIndex == 0
+                              ? 'Your turn'
+                              : 'Opponent thinking...',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -134,22 +147,27 @@ class GamePage extends StatelessWidget {
                       ActionButton(
                         label: 'Swap',
                         icon: Icons.sync,
-                        onPressed: viewModel.swapTiles,
+                        onPressed: isPlayerTurn ? viewModel.swapTiles : null,
                       ),
                       ActionButton(
                         label: 'Pass',
                         icon: Icons.pause_circle_filled,
-                        onPressed: viewModel.passTurn,
+                        onPressed: isPlayerTurn ? viewModel.passTurn : null,
+                      ),
+                      ActionButton(
+                        label: 'Play',
+                        icon: Icons.send,
+                        onPressed: isPlayerTurn ? viewModel.finishTurn : null,
                       ),
                       ActionButton(
                         label: 'Word',
-                        icon: Icons.spellcheck,
-                        onPressed: viewModel.submitWord,
+                        icon: Icons.menu_book,
+                        onPressed: () => _showWordDialog(context, viewModel),
                       ),
                       ActionButton(
                         label: 'Hint',
                         icon: Icons.lightbulb,
-                        onPressed: viewModel.showBackTapWarning,
+                        onPressed: isPlayerTurn ? viewModel.showHint : null,
                       ),
                     ],
                   ),
@@ -180,12 +198,72 @@ class GamePage extends StatelessWidget {
                   child: Text(
                     viewModel.overlayMessage,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showWordDialog(BuildContext context, GameViewModel viewModel) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remaining Words'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: viewModel.clues.length,
+            separatorBuilder: (_, __) => const Divider(),
+            itemBuilder: (context, index) {
+              final clue = viewModel.clues[index];
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (clue.assetPath != null)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        clue.assetPath!,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  else
+                    const Icon(Icons.image_not_supported),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          clue.text,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text('Pattern: ${'•' * clue.answer.length}'),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
@@ -223,14 +301,14 @@ class _BoardGrid extends StatelessWidget {
         if (cell.isClue) {
           return ClueTile(cell: cell);
         }
-    return DragTarget<String>(
-      onWillAcceptWithDetails: (details) =>
-        !cell.isBlocked &&
-        !cell.isClue &&
-        cell.letter == null &&
-        details.data.isNotEmpty,
-      onAcceptWithDetails: (details) =>
-        onDropLetter(cell, details.data),
+        return DragTarget<String>(
+          onWillAcceptWithDetails: (details) =>
+              !cell.isBlocked &&
+              !cell.isClue &&
+              cell.letter == null &&
+              details.data.isNotEmpty,
+          onAcceptWithDetails: (details) =>
+              onDropLetter(cell, details.data),
           builder: (context, candidateData, rejectedData) {
             return GestureDetector(
               onTap: () =>
@@ -241,9 +319,11 @@ class _BoardGrid extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: cell.isBlocked
                       ? Colors.grey.shade700
-                      : cell.isSelected
-                          ? Theme.of(context).colorScheme.primaryContainer
-                          : Theme.of(context).colorScheme.surface,
+                      : cell.isHighlighted
+                          ? const Color(0xFFFFF7CC)
+                          : cell.isSelected
+                              ? Theme.of(context).colorScheme.primaryContainer
+                              : Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: candidateData.isNotEmpty
