@@ -16,6 +16,9 @@ class AiService {
     return 1;
   }
 
+  /// Returns true ~15% of the time to simulate occasional swap/pass.
+  bool shouldSwap() => _random.nextInt(100) < 15;
+
   BoardCell? pickRandomCell(List<List<BoardCell>> board) {
     final openCells = <BoardCell>[];
     for (final row in board) {

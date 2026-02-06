@@ -10,10 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:crossword_multiplayer_game/main.dart';
 
 void main() {
-  testWidgets('App shows game header', (WidgetTester tester) async {
+  testWidgets('App shows home page header', (WidgetTester tester) async {
     await tester.pumpWidget(const CrosswordGameApp());
 
-    expect(find.text('Crossword Duel'), findsOneWidget);
-    expect(find.text('You vs Opponent'), findsOneWidget);
+    expect(find.text('Crossword Master'), findsWidgets);
   });
 }

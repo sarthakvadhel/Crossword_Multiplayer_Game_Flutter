@@ -15,6 +15,8 @@ class StorageService {
       'rackLetters': snapshot.rackLetters,
       'playerScores': snapshot.playerScores,
       'currentPlayerIndex': snapshot.currentPlayerIndex,
+      'streak': snapshot.streak,
+      'longestWordLength': snapshot.longestWordLength,
     });
     await prefs.setString(_gameKey, data);
   }
@@ -44,6 +46,8 @@ class StorageService {
       rackLetters: rack,
       playerScores: scores,
       currentPlayerIndex: decoded['currentPlayerIndex'] as int,
+      streak: (decoded['streak'] as int?) ?? 0,
+      longestWordLength: (decoded['longestWordLength'] as int?) ?? 0,
     );
   }
 
