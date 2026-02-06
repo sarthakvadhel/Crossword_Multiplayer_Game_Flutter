@@ -24,10 +24,4 @@ class BannerService {
     ];
     return messages[_random.nextInt(messages.length)];
   }
-
-  String bigScoreBanner(int points) {
-    if (points >= 15) return 'Incredible! +$points points!';
-    if (points >= 10) return 'Awesome! +$points points!';
-    return 'Nice! +$points points!';
-  }
 }

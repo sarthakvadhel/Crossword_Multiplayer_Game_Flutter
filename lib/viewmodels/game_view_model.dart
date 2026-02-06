@@ -120,9 +120,9 @@ class GameViewModel extends ChangeNotifier {
   }
 
   void finishTurn() {
-    var turnScore = 0;
     final completedWords = _detectCompletedWords();
     if (completedWords.isNotEmpty) {
+      var turnScore = 0;
       for (final word in completedWords) {
         turnScore += word.length;
       }
@@ -138,28 +138,19 @@ class GameViewModel extends ChangeNotifier {
         }
       }
 
-      // Streak bonus
-      if (_streak >= 3) {
-        _showOverlayBanner(_bannerService.streakBanner(_streak));
-      } else {
-        _showOverlayBanner(_bannerService.wordCompleteBanner());
-      }
+      _showStreakOrCompleteBanner();
     } else {
       // Check simple word from all placed letters
       final word = _currentWord();
       if (word.isNotEmpty && _dictionary.isValid(word)) {
-        final wordLength = word.length;
-        currentPlayer.score += wordLength;
+        currentPlayer.score += word.length;
         _streak += 1;
-        if (wordLength > _longestWordLength) {
-          _longestWordLength = wordLength;
+        if (word.length > _longestWordLength) {
+          _longestWordLength = word.length;
           currentPlayer.score += 6;
           _showOverlayBanner(_bannerService.longestWordBanner());
-        } else if (_streak >= 3) {
-          _showOverlayBanner(_bannerService.streakBanner(_streak));
-        } else {
-          _showOverlayBanner(_bannerService.wordCompleteBanner());
         }
+        _showStreakOrCompleteBanner();
       } else if (word.isNotEmpty) {
         _streak = 0;
         _showNotification('Not a valid word');
@@ -175,35 +166,55 @@ class GameViewModel extends ChangeNotifier {
     _nextTurn();
   }
 
+  void _showStreakOrCompleteBanner() {
+    if (_streak >= 3) {
+      _showOverlayBanner(_bannerService.streakBanner(_streak));
+    } else {
+      _showOverlayBanner(_bannerService.wordCompleteBanner());
+    }
+  }
+
   /// Scans rows and columns for completed valid words.
   List<String> _detectCompletedWords() {
-    final found = <String>[];
+    final found = <String>{};
     // Scan rows
     for (final row in _board) {
-      final word = _extractWordFromCells(row);
-      if (word.length >= 2 && _dictionary.isValid(word)) {
-        found.add(word);
+      for (final word in _extractWordsFromCells(row)) {
+        if (word.length >= 2 && _dictionary.isValid(word)) {
+          found.add(word);
+        }
       }
     }
     // Scan columns
     for (var col = 0; col < _board.first.length; col++) {
       final colCells = [for (var row = 0; row < _board.length; row++) _board[row][col]];
-      final word = _extractWordFromCells(colCells);
-      if (word.length >= 2 && _dictionary.isValid(word)) {
-        found.add(word);
+      for (final word in _extractWordsFromCells(colCells)) {
+        if (word.length >= 2 && _dictionary.isValid(word)) {
+          found.add(word);
+        }
       }
     }
-    return found;
+    return found.toList();
   }
 
-  String _extractWordFromCells(List<BoardCell> cells) {
+  /// Extracts consecutive letter sequences separated by gaps, blocked cells, or clues.
+  List<String> _extractWordsFromCells(List<BoardCell> cells) {
+    final words = <String>[];
     final buf = StringBuffer();
     for (final cell in cells) {
       if (!cell.isBlocked && !cell.isClue && cell.letter != null) {
         buf.write(cell.letter);
+      } else {
+        if (buf.length >= 2) {
+          words.add(buf.toString());
+        }
+        buf.clear();
       }
     }
-    return buf.toString();
+    if (buf.length >= 2) {
+      words.add(buf.toString());
+    }
+    return words;
   }
 
   String _currentWord() {

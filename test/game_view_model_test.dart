@@ -31,7 +31,6 @@ void main() {
 
   test('swap replaces rack letters and resets streak', () {
     final viewModel = GameViewModel();
-    final original = List<String>.from(viewModel.rackLetters);
     viewModel.swapTiles();
     expect(viewModel.rackLetters.length, 5);
     expect(viewModel.streak, 0);
