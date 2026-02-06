@@ -9,6 +9,7 @@ import '../models/clue.dart';
 import '../models/game_snapshot.dart';
 import '../models/player.dart';
 import '../services/ai_service.dart';
+import '../services/banner_service.dart';
 import '../services/dictionary_service.dart';
 import '../services/sound_service.dart';
 import '../services/storage_service.dart';
@@ -19,10 +20,12 @@ class GameViewModel extends ChangeNotifier {
     SoundService? soundService,
     AiService? aiService,
     StorageService? storageService,
+    BannerService? bannerService,
   })  : _dictionary = dictionaryService ?? DictionaryService(),
         _soundService = soundService ?? SoundService(),
         _aiService = aiService ?? AiService(),
-        _storageService = storageService ?? StorageService() {
+        _storageService = storageService ?? StorageService(),
+        _bannerService = bannerService ?? BannerService() {
     _resetBoard();
     _clues = MockClues.all();
     _players = [
@@ -43,11 +46,13 @@ class GameViewModel extends ChangeNotifier {
   String _selectedRackLetter = '';
   bool _hasSavedGame = false;
   int _longestWordLength = 0;
+  int _streak = 0;
 
   final DictionaryService _dictionary;
   final SoundService _soundService;
   final AiService _aiService;
   final StorageService _storageService;
+  final BannerService _bannerService;
 
   static const int _rackSize = 5;
 
@@ -62,6 +67,7 @@ class GameViewModel extends ChangeNotifier {
   bool get soundEnabled => _soundService.soundEnabled;
   bool get hapticsEnabled => _soundService.hapticsEnabled;
   bool get hasSavedGame => _hasSavedGame;
+  int get streak => _streak;
 
   Player get currentPlayer => _players[_currentPlayerIndex];
 
@@ -114,24 +120,90 @@ class GameViewModel extends ChangeNotifier {
   }
 
   void finishTurn() {
-    final word = _currentWord();
-    if (word.isNotEmpty && _dictionary.isValid(word)) {
-      final wordLength = word.length;
-      currentPlayer.score += wordLength;
-      if (wordLength > _longestWordLength) {
-        _longestWordLength = wordLength;
-        currentPlayer.score += 6;
-        _showOverlayBanner('Yey!! You formed the longest word!');
+    var turnScore = 0;
+    final completedWords = _detectCompletedWords();
+    if (completedWords.isNotEmpty) {
+      for (final word in completedWords) {
+        turnScore += word.length;
       }
-    } else if (word.isNotEmpty) {
-      _showNotification('Not a valid word');
+      currentPlayer.score += turnScore;
+      _streak += 1;
+
+      // Longest word bonus
+      for (final word in completedWords) {
+        if (word.length > _longestWordLength) {
+          _longestWordLength = word.length;
+          currentPlayer.score += 6;
+          _showOverlayBanner(_bannerService.longestWordBanner());
+        }
+      }
+
+      // Streak bonus
+      if (_streak >= 3) {
+        _showOverlayBanner(_bannerService.streakBanner(_streak));
+      } else {
+        _showOverlayBanner(_bannerService.wordCompleteBanner());
+      }
+    } else {
+      // Check simple word from all placed letters
+      final word = _currentWord();
+      if (word.isNotEmpty && _dictionary.isValid(word)) {
+        final wordLength = word.length;
+        currentPlayer.score += wordLength;
+        _streak += 1;
+        if (wordLength > _longestWordLength) {
+          _longestWordLength = wordLength;
+          currentPlayer.score += 6;
+          _showOverlayBanner(_bannerService.longestWordBanner());
+        } else if (_streak >= 3) {
+          _showOverlayBanner(_bannerService.streakBanner(_streak));
+        } else {
+          _showOverlayBanner(_bannerService.wordCompleteBanner());
+        }
+      } else if (word.isNotEmpty) {
+        _streak = 0;
+        _showNotification('Not a valid word');
+      }
     }
+
+    // Empty hand bonus
     if (rackLetters.isEmpty) {
       currentPlayer.score += 5;
-      _showOverlayBanner('Empty Hand Master!');
+      _showOverlayBanner(_bannerService.emptyHandBanner());
     }
     _selectedRackLetter = '';
     _nextTurn();
+  }
+
+  /// Scans rows and columns for completed valid words.
+  List<String> _detectCompletedWords() {
+    final found = <String>[];
+    // Scan rows
+    for (final row in _board) {
+      final word = _extractWordFromCells(row);
+      if (word.length >= 2 && _dictionary.isValid(word)) {
+        found.add(word);
+      }
+    }
+    // Scan columns
+    for (var col = 0; col < _board.first.length; col++) {
+      final colCells = [for (var row = 0; row < _board.length; row++) _board[row][col]];
+      final word = _extractWordFromCells(colCells);
+      if (word.length >= 2 && _dictionary.isValid(word)) {
+        found.add(word);
+      }
+    }
+    return found;
+  }
+
+  String _extractWordFromCells(List<BoardCell> cells) {
+    final buf = StringBuffer();
+    for (final cell in cells) {
+      if (!cell.isBlocked && !cell.isClue && cell.letter != null) {
+        buf.write(cell.letter);
+      }
+    }
+    return buf.toString();
   }
 
   String _currentWord() {
@@ -150,12 +222,14 @@ class GameViewModel extends ChangeNotifier {
     rackLetters = _drawLetters(_rackSize);
     _showNotification('Tiles swapped');
     _selectedRackLetter = '';
+    _streak = 0;
     _nextTurn();
   }
 
   void passTurn() {
     _showNotification('Turn passed');
     _selectedRackLetter = '';
+    _streak = 0;
     _nextTurn();
   }
 
@@ -200,6 +274,14 @@ class GameViewModel extends ChangeNotifier {
 
   void _runAiTurn() {
     Timer(const Duration(milliseconds: 900), () {
+      if (_aiService.shouldSwap()) {
+        _showNotification('Opponent swapped tiles');
+        _currentPlayerIndex = 0;
+        _persistGame();
+        notifyListeners();
+        return;
+      }
+
       final moves = _aiService.pickMoveCount();
       var placed = 0;
       for (var i = 0; i < moves; i++) {
@@ -214,7 +296,7 @@ class GameViewModel extends ChangeNotifier {
       }
       if (placed == _rackSize) {
         currentPlayer.score += 5;
-        _showOverlayBanner('Empty Hand Master!');
+        _showOverlayBanner(_bannerService.emptyHandBanner());
       }
       _showNotification('Opponent played');
       _currentPlayerIndex = 0;
@@ -283,6 +365,8 @@ class GameViewModel extends ChangeNotifier {
       _players[i].score = snapshot.playerScores[i];
     }
     _currentPlayerIndex = snapshot.currentPlayerIndex;
+    _streak = snapshot.streak;
+    _longestWordLength = snapshot.longestWordLength;
   }
 
   Future<void> resetGame() async {
@@ -293,6 +377,7 @@ class GameViewModel extends ChangeNotifier {
     }
     _currentPlayerIndex = 0;
     _longestWordLength = 0;
+    _streak = 0;
     _selectedRackLetter = '';
     _hasSavedGame = false;
     await _storageService.clearGame();
@@ -307,6 +392,8 @@ class GameViewModel extends ChangeNotifier {
       rackLetters: rackLetters,
       playerScores: _players.map((player) => player.score).toList(),
       currentPlayerIndex: _currentPlayerIndex,
+      streak: _streak,
+      longestWordLength: _longestWordLength,
     );
     await _storageService.saveGame(snapshot);
     _hasSavedGame = true;

@@ -5,6 +5,8 @@ class GameSnapshot {
     required this.rackLetters,
     required this.playerScores,
     required this.currentPlayerIndex,
+    this.streak = 0,
+    this.longestWordLength = 0,
   });
 
   final List<String?> boardLetters;
@@ -12,4 +14,6 @@ class GameSnapshot {
   final List<String> rackLetters;
   final List<int> playerScores;
   final int currentPlayerIndex;
+  final int streak;
+  final int longestWordLength;
 }

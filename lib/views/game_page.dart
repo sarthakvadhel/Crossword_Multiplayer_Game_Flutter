@@ -7,6 +7,7 @@ import '../widgets/action_button.dart';
 import '../widgets/clue_tile.dart';
 import '../widgets/letter_rack.dart';
 import '../widgets/player_score_card.dart';
+import '../widgets/turn_indicator.dart';
 
 class GamePage extends StatelessWidget {
   const GamePage({super.key});
@@ -84,14 +85,8 @@ class GamePage extends StatelessWidget {
                       ),
                       Align(
                         alignment: Alignment.bottomCenter,
-                        child: Text(
-                          viewModel.currentPlayerIndex == 0
-                              ? 'Your turn'
-                              : 'Opponent thinking...',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        child: TurnIndicator(
+                          isPlayerTurn: viewModel.currentPlayerIndex == 0,
                         ),
                       ),
                     ],
@@ -192,15 +187,30 @@ class GamePage extends StatelessWidget {
                 top: 0,
                 left: 0,
                 right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  color: const Color(0xB3000000),
-                  child: Text(
-                    viewModel.overlayMessage,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
+                child: AnimatedSlide(
+                  offset: viewModel.showOverlay
+                      ? Offset.zero
+                      : const Offset(0, -1),
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeOutBack,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xCC4F6CF6), Color(0xCC7B61FF)],
+                      ),
+                    ),
+                    child: Text(
+                      viewModel.overlayMessage,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                 ),
